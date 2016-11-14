@@ -6,17 +6,19 @@
     To run:
 
     $ ./c-bench
-    Blosc version info: 1.3.0 ($Date:: 2014-01-11 #$)
+    Blosc version info: 1.11.1 ($Date:: 2016-09-03 #$)
+    Time to create an HDF5 file: 0.170s (2.20 GB/s)
+    Time to read an HDF5 file: 0.228s (1.63 GB/s)
     Success!
-    $ h5ls -v c-bench .h5
-    Opened "example.h5" with sec2 driver.
-    dset                     Dataset {100/100, 100/100, 100/100}
+    $ h5ls -v c-bench.h5
+    Opened "c-bench.h5" with sec2 driver.
+    dset                     Dataset {100/100, 100/100, 100/100, 100/100}
         Location:  1:800
         Links:     1
-        Chunks:    {1, 100, 100} 40000 bytes
-        Storage:   4000000 logical bytes, 126002 allocated bytes, 3174.55% utilization
-        Filter-0:  blosc-32001 OPT {2, 2, 4, 40000, 4, 1, 2}
-        Type:      native float
+        Chunks:    {1, 100, 100, 100} 4000000 bytes
+        Storage:   400000000 logical bytes, 2681398 allocated bytes, 14917.59% utilization
+        Filter-0:  blosc-32001 OPT {2, 2, 4, 4000000, 9, 1, 0}
+        Type:      native int
 
 */
 
@@ -40,8 +42,7 @@ int main() {
   int return_code = 1;
   clock_t start, end;
   double cpu_time_used;
-
-  hid_t fid, sid, dset, plist = 0;
+  hid_t fid, sid, dset, plist;
 
   for (i = 0; i < SIZE; i++) {
     data[i] = i;
@@ -67,8 +68,8 @@ int main() {
 
   /* Set the filter with 7 params */
   r = H5Pset_filter(plist, FILTER_BLOSC, H5Z_FLAG_OPTIONAL, 7, cd_values);
-  //dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
-  dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
+  //dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   r = H5Dwrite(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);
   H5Dclose(dset);
