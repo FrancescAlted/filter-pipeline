@@ -78,7 +78,7 @@ int main() {
 
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-  printf("Time to create an HDF5 file: %.3fs (%.2f GB/s)\n", cpu_time_used,
+  printf("Time to create c-bench.h5: %.3fs (%.2f GB/s)\n", cpu_time_used,
          SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
 
   start = clock();
@@ -91,12 +91,8 @@ int main() {
   H5Fclose(fid);
   end = clock();
   cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-  printf("Time to read an HDF5 file: %.3fs (%.2f GB/s)\n", cpu_time_used,
+  printf("Time to read c-bench.h5:   %.3fs (%.2f GB/s)\n", cpu_time_used,
          SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
-
-//  for (i = 0; i < SIZE; i++) {
-//    if (data[i] != data_out[i]) printf("Data written and read are not equal!");
-//  }
 
   fprintf(stdout, "Success!\n");
 
