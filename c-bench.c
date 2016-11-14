@@ -24,6 +24,7 @@
 
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 #include "hdf5.h"
 #include "blosc_filter.h"
 
@@ -31,7 +32,8 @@
 #define SHAPE {100, 100, 100, 100}
 #define CHUNKSHAPE {1, 100, 100, 100}
 
-int main() {
+int main(int argc, char* argv[]) {
+  char codec[32];
   static int data[SIZE];
   static int data_out[SIZE];
   const hsize_t shape[] = SHAPE;
@@ -43,6 +45,35 @@ int main() {
   clock_t start, end;
   double cpu_time_used;
   hid_t fid, sid, dset, plist;
+  char usage[256];
+
+  strncpy(usage, "Usage: c-bench [blosclz | lz4 | lz4hc | snappy | zlib | zstd] ", 255);
+  if (argc < 2) {
+    printf("%s\n", usage);
+    exit(1);
+  }
+
+  strcpy(codec, argv[1]);
+  printf("codec: %s", codec);
+  if (strcmp(codec, "None") == 0)
+    cd_values[6] = -1;
+  else if (strcmp(codec, "blosclz") == 0)
+    cd_values[6] = BLOSC_BLOSCLZ;
+  else if (strcmp(codec, "lz4") == 0)
+    cd_values[6] = BLOSC_LZ4;
+  else if (strcmp(codec, "lz4hc") == 0)
+    cd_values[6] = BLOSC_LZ4HC;
+  else if (strcmp(codec, "snappy") == 0)
+    cd_values[6] = BLOSC_SNAPPY;
+  else if (strcmp(codec, "zlib") == 0)
+    cd_values[6] = BLOSC_ZLIB;
+  else if (strcmp(codec, "zstd") == 0)
+    cd_values[6] = BLOSC_ZSTD;
+  else {
+    printf("No such codec: '%s'\n", codec);
+    printf("%s\n", usage);
+    exit(2);
+  }
 
   for (i = 0; i < SIZE; i++) {
     data[i] = i;
@@ -61,15 +92,16 @@ int main() {
   r = H5Pset_chunk(plist, 4, chunkshape);
 
   /* 0 to 3 (inclusive) param slots are reserved. */
-  //cd_values[4] = 0;       /* compression level */
   cd_values[4] = 9;       /* compression level */
   cd_values[5] = 1;       /* 0: shuffle not active, 1: shuffle active, 2: bitshuffle active */
-  cd_values[6] = BLOSC_BLOSCLZ; /* the actual compressor to use */
 
-  /* Set the filter with 7 params */
-  r = H5Pset_filter(plist, FILTER_BLOSC, H5Z_FLAG_OPTIONAL, 7, cd_values);
-  dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
-  //dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  if (cd_values[6] == -1) {
+    dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  }
+  else {
+    r = H5Pset_filter(plist, FILTER_BLOSC, H5Z_FLAG_OPTIONAL, 7, cd_values);
+    dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
+  }
 
   r = H5Dwrite(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);
   H5Dclose(dset);
