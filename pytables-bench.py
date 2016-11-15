@@ -51,27 +51,38 @@ if __name__ == "__main__":
     codec = sys.argv[1]
     if codec == 'NoChunks':
         print("Using Dataset with no chunks!")
+    write_only, read_only, inmemory = False, False, False
     if (len(sys.argv) > 2):
-        inmemory = sys.argv[2]
-        print("Working in-memory!")
-    else:
-        inmemory = False
+        if sys.argv[2] == 'r':
+            print("Read only!")
+            read_only = True
+        elif sys.argv[2] == 'w':
+            print("Write only!")
+            write_only = True
+        elif sys.argv[2] == 'm':
+            print("Working in-memory!")
+            inmemory = True
+        else:
+            print("Second argument can only be 'r'ead_only, 'w'rite_only or in'm'emory")
+            sys.exit()
 
-    t0 = time()
-    f = create_hdf5(fname, codec, inmemory)
-    t = time() - t0
-    print("Time to create %s: %.3fs (%.2f GB/s)" % (
-        fname, t, a.size * a.itemsize / (2**30 * t)))
-    #nbytes = N * 4; cbytes = f.get_filesize()
-    #cratio = nbytes / float(cbytes)
-    #print("Compression ratio:   %.2fx" % cratio)
+    if not read_only:
+        t0 = time()
+        f = create_hdf5(fname, codec, inmemory)
+        t = time() - t0
+        print("Time to create %s: %.3fs (%.2f GB/s)" % (
+            fname, t, a.size * a.itemsize / (2**30 * t)))
+        #nbytes = N * 4; cbytes = f.get_filesize()
+        #cratio = nbytes / float(cbytes)
+        #print("Compression ratio:   %.2fx" % cratio)
 
-    t0 = time()
-    if inmemory:
-        h5a = f.root.carray[:]
-        f.close()
-    else:
-        h5a = read_hdf5(fname)
-    t = time() - t0
-    print("Time to read %s:   %.3fs (%.2f GB/s)" % (
-        fname, time() - t0, a.size * a.itemsize / (2**30 * t)))
+    if not write_only:
+        t0 = time()
+        if inmemory:
+            h5a = f.root.carray[:]
+            f.close()
+        else:
+            h5a = read_hdf5(fname)
+        t = time() - t0
+        print("Time to read %s:   %.3fs (%.2f GB/s)" % (
+            fname, time() - t0, a.size * a.itemsize / (2**30 * t)))
