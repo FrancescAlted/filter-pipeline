@@ -1,34 +1,50 @@
+#!/usr/bin/env python
+
+"""Utility to benchmark creation and reading of datasets with filters.
+
+:Author: Francesc Alted
+:Contact:  francesc@hdfgroup.org
+:Created:  2016-11-14
+
+Help to use this script can be get with::
+
+  $ python pytables-bench.py -h
+
+"""
+
 from __future__ import print_function
 
+import os
+import argparse
 import sys
 from time import time
+
 import numpy as np
 import tables
 
 
 N = int(1e8)
 
-def create_hdf5(fname, codec, inmemory):
-    a = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
-    if codec not in ('None', 'NoChunks'):
-        filters = tables.Filters(complevel=9, complib="%s" % codec)
+def create_hdf5(arr, fname, method, inmemory):
+    if method not in ('cont', 'chunk'):
+        filters = tables.Filters(complevel=9, complib="blosc")
     else:
         filters = None
     if inmemory:
         f = tables.open_file(fname, "w", pytables_sys_attrs=False, driver="H5FD_CORE")
-        if codec != 'NoChunks':
-            f.create_carray(f.root, 'carray', filters=filters, obj=a,
-                            chunkshape=(1, 100, 100, 100))
+        if method == 'cont':
+            f.create_array(f.root, 'carray', obj=arr)
         else:
-            f.create_array(f.root, 'carray', obj=a)
+            f.create_carray(f.root, 'carray', filters=filters, obj=arr,
+                            chunkshape=(1, 100, 100, 100))
         return f
     else:
         with tables.open_file(fname, "w", pytables_sys_attrs=False) as f:
-            if codec != 'NoChunks':
-                f.create_carray(f.root, 'carray', filters=filters, obj=a,
-                                chunkshape=(1, 100, 100, 100))
+            if method == 'cont':
+                f.create_array(f.root, 'carray', obj=arr)
             else:
-                f.create_array(f.root, 'carray', obj=a)
+                f.create_carray(f.root, 'carray', filters=filters, obj=arr,
+                                chunkshape=(1, 100, 100, 100))
         return None
 
 def read_hdf5(fname):
@@ -47,28 +63,48 @@ blosc_cinfo = [
     ]
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-r", "--read-only", action="store_true",
+        help="Read only bench.",
+    )
+    parser.add_argument(
+        "-w", "--write-only", action="store_true",
+        help="Write only bench.",
+    )
+    parser.add_argument(
+        "-m", "--in-memory", action="store_true",
+        help="In-memory bench (incompatible with -r).",
+    )
+    parser.add_argument(
+        "method", nargs="?",
+        help=("The method to write the dataset.  I can be:\n"
+              "  * cont: Contiguous dataset, so no chunked\n"
+              "  * chunk: Chunked, but no filter is applied\n"
+              "  * blosc: Chunked and Blosc filter is applied")
+        )
+
+    args = parser.parse_args()
     fname = sys.argv[0].replace(".py", ".h5")
-    codec = sys.argv[1]
-    if codec == 'NoChunks':
+    if args.method not in ('cont', 'chunk', 'blosc'):
+        raise RuntimeError("method can only be 'cont', 'chunk' or 'blosc'")
+    if args.method == 'cont':
         print("Using Dataset with no chunks!")
     write_only, read_only, inmemory = False, False, False
-    if (len(sys.argv) > 2):
-        if sys.argv[2] == 'r':
-            print("Read only!")
-            read_only = True
-        elif sys.argv[2] == 'w':
-            print("Write only!")
-            write_only = True
-        elif sys.argv[2] == 'm':
-            print("Working in-memory!")
-            inmemory = True
-        else:
-            print("Second argument can only be 'r'ead_only, 'w'rite_only or in'm'emory")
-            sys.exit()
+    if args.read_only:
+        print("Read only!")
+    elif args.write_only:
+        print("Write only!")
+    elif args.in_memory:
+        print("Working in-memory!")
 
-    if not read_only:
+    if not args.read_only:
+        if os.path.isfile(fname):
+            os.remove(fname)
+        arr = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
         t0 = time()
-        f = create_hdf5(fname, codec, inmemory)
+        f = create_hdf5(arr, fname, args.method, args.in_memory)
         t = time() - t0
         print("Time to create %s: %.3fs (%.2f GB/s)" % (
             fname, t, N * 4 / (2**30 * t)))
@@ -76,9 +112,9 @@ if __name__ == "__main__":
         #cratio = nbytes / float(cbytes)
         #print("Compression ratio:   %.2fx" % cratio)
 
-    if not write_only:
+    if not args.write_only:
         t0 = time()
-        if inmemory:
+        if args.in_memory:
             h5a = f.root.carray[:]
             f.close()
         else:
