@@ -87,7 +87,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     fname = sys.argv[0].replace(".py", ".h5")
-    if args.method not in ('cont', 'chunk', 'blosc'):
+    if not args.read_only and args.method not in ('cont', 'chunk', 'blosc'):
         raise RuntimeError("method can only be 'cont', 'chunk' or 'blosc'")
     if args.method == 'cont':
         print("Using Dataset with no chunks!")
