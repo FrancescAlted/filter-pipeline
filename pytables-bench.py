@@ -61,9 +61,9 @@ blosc_cinfo = tables.blosc_get_complib_info()
 blosc_cinfo = [
     "%s (%s)" % (k, v[1]) for k, v in sorted(blosc_cinfo.items())
     ]
+print("-=" * 38)
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r", "--read-only", action="store_true",
@@ -79,19 +79,18 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "method", nargs="?",
-        help=("The method to write the dataset.  I can be:\n"
-              "  * cont: Contiguous dataset, so no chunked\n"
-              "  * chunk: Chunked, but no filter is applied\n"
+        help=("The method to write the dataset.  I can be:"
+              "  * cont: Contiguous dataset, so no chunked"
+              "  * chunk: Chunked, but no filter is applied"
               "  * blosc: Chunked and Blosc filter is applied")
         )
-
     args = parser.parse_args()
+
     fname = sys.argv[0].replace(".py", ".h5")
     if args.method not in ('cont', 'chunk', 'blosc'):
         raise RuntimeError("method can only be 'cont', 'chunk' or 'blosc'")
     if args.method == 'cont':
         print("Using Dataset with no chunks!")
-    write_only, read_only, inmemory = False, False, False
     if args.read_only:
         print("Read only!")
     elif args.write_only:
