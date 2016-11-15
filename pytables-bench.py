@@ -7,9 +7,9 @@ import tables
 
 
 N = int(1e8)
-a = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
 
 def create_hdf5(fname, codec, inmemory):
+    a = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
     if codec not in ('None', 'NoChunks'):
         filters = tables.Filters(complevel=9, complib="%s" % codec)
     else:
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         f = create_hdf5(fname, codec, inmemory)
         t = time() - t0
         print("Time to create %s: %.3fs (%.2f GB/s)" % (
-            fname, t, a.size * a.itemsize / (2**30 * t)))
+            fname, t, N * 4 / (2**30 * t)))
         #nbytes = N * 4; cbytes = f.get_filesize()
         #cratio = nbytes / float(cbytes)
         #print("Compression ratio:   %.2fx" % cratio)
@@ -85,4 +85,4 @@ if __name__ == "__main__":
             h5a = read_hdf5(fname)
         t = time() - t0
         print("Time to read %s:   %.3fs (%.2f GB/s)" % (
-            fname, time() - t0, a.size * a.itemsize / (2**30 * t)))
+            fname, time() - t0, N * 4 / (2**30 * t)))
