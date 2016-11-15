@@ -10,19 +10,25 @@ N = int(1e8)
 a = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
 
 def create_hdf5(fname, codec, inmemory):
-    if codec != 'None':
+    if codec not in ('None', 'NoChunks'):
         filters = tables.Filters(complevel=9, complib="%s" % codec)
     else:
         filters = None
     if inmemory:
         f = tables.open_file(fname, "w", pytables_sys_attrs=False, driver="H5FD_CORE")
-        f.create_carray(f.root, 'carray', filters=filters, obj=a,
-                        chunkshape=(1, 100, 100, 100))
+        if codec == 'NoChunks':
+            f.create_carray(f.root, 'carray', filters=filters, obj=a,
+                            chunkshape=(1, 100, 100, 100))
+        else:
+            f.create_array(f.root, 'carray', obj=a)
         return f
     else:
         with tables.open_file(fname, "w", pytables_sys_attrs=False) as f:
-            f.create_carray(f.root, 'carray', filters=filters, obj=a,
-                            chunkshape=(1, 100, 100, 100))
+            if codec == 'NoChunks':
+                f.create_carray(f.root, 'carray', filters=filters, obj=a,
+                                chunkshape=(1, 100, 100, 100))
+            else:
+                f.create_array(f.root, 'carray', obj=a)
         return None
 
 def read_hdf5(fname):
@@ -43,6 +49,8 @@ blosc_cinfo = [
 if __name__ == "__main__":
     fname = sys.argv[0].replace(".py", ".h5")
     codec = sys.argv[1]
+    if codec == 'NoChunks':
+        print("Using Dataset with no chunks!")
     if (len(sys.argv) > 2):
         inmemory = sys.argv[2]
         print("Working in-memory!")
