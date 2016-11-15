@@ -16,7 +16,7 @@ def create_hdf5(fname, codec, inmemory):
         filters = None
     if inmemory:
         f = tables.open_file(fname, "w", pytables_sys_attrs=False, driver="H5FD_CORE")
-        if codec == 'NoChunks':
+        if codec != 'NoChunks':
             f.create_carray(f.root, 'carray', filters=filters, obj=a,
                             chunkshape=(1, 100, 100, 100))
         else:
@@ -24,7 +24,7 @@ def create_hdf5(fname, codec, inmemory):
         return f
     else:
         with tables.open_file(fname, "w", pytables_sys_attrs=False) as f:
-            if codec == 'NoChunks':
+            if codec != 'NoChunks':
                 f.create_carray(f.root, 'carray', filters=filters, obj=a,
                                 chunkshape=(1, 100, 100, 100))
             else:
