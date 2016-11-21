@@ -180,8 +180,10 @@ Time to read bcolz-bench.bcolz:   0.411s (3.63 GB/s)
 
 so, the HDF5 filter pipeline is showing a 20% of slowdown compared with
 a package using a filter pipepline that does not require the additional
-memcpy().  ![Figure1][Figure1] is a profile (made with valgrind) showing how
-memcpy() is called a lot after the filter has finished.
+memcpy().  In the figure below there is a profile (made with valgrind)
+showing how memcpy() is called a lot after the filter has finished (400
+times, i.e. once per chunk).
 
-[Figure1]: https://github.com/FrancescAlted/filter-pipeline/blob/master/report/pytables-bench-blosc5-r.png
+![Figure1](https://github.com/FrancescAlted/filter-pipeline/blob/master/report/pytables-bench-blosc5-r.png)
+
 
