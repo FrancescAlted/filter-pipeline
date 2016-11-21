@@ -257,6 +257,81 @@ threads into the task is still unknown, as both the C and PyTables
 benchmarks use the very same Blosc filter.  This deserves more study
 indeed.
 
+In-memory operation
+-------------------
+
+HDF5 can operate with in-memory data (via the 'H5FD_CORE' driver).  This
+allows to get rid of any I/O overhead and is useful to see the actual
+overhead of the different filters.
+  
+Let's see how HDF5 performs in this case:
+
+```
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.395s (3.77 GB/s)
+Time to read pytables-bench.h5:   0.493s (3.02 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.362s (4.11 GB/s)
+Time to read pytables-bench.h5:   0.397s (3.76 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.299s (4.98 GB/s)
+Time to read pytables-bench.h5:   0.342s (4.36 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=4 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.301s (4.95 GB/s)
+Time to read pytables-bench.h5:   0.336s (4.43 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=5 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.272s (5.47 GB/s)
+Time to read pytables-bench.h5:   0.315s (4.73 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=6 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.275s (5.42 GB/s)
+Time to read pytables-bench.h5:   0.344s (4.33 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=7 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.275s (5.43 GB/s)
+Time to read pytables-bench.h5:   0.301s (4.96 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=8 python pytables-bench.py blosc -m
+Time to create pytables-bench.h5: 0.271s (5.51 GB/s)
+Time to read pytables-bench.h5:   0.309s (4.82 GB/s)
+```
+
+and now, bcolz using the in-memory containers:
+
+```
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python bcolz-bench.py  -m
+Time to create None: 0.254s (5.87 GB/s)
+Time to read None:   0.397s (3.75 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 python bcolz-bench.py  -m
+Time to create None: 0.188s (7.94 GB/s)
+Time to read None:   0.268s (5.56 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 python bcolz-bench.py  -m
+Time to create None: 0.131s (11.37 GB/s)
+Time to read None:   0.221s (6.74 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=4 python bcolz-bench.py  -m
+Time to create None: 0.105s (14.15 GB/s)
+Time to read None:   0.212s (7.03 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=5 python bcolz-bench.py  -m
+Time to create None: 0.091s (16.42 GB/s)
+Time to read None:   0.248s (6.02 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=6 python bcolz-bench.py  -m
+Time to create None: 0.094s (15.85 GB/s)
+Time to read None:   0.269s (5.55 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=7 python bcolz-bench.py  -m
+Time to create None: 0.112s (13.30 GB/s)
+Time to read None:   0.300s (4.97 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=8 python bcolz-bench.py  -m
+Time to create None: 0.088s (16.92 GB/s)
+Time to read None:   0.336s (4.44 GB/s)
+```
+
+So, we can see that, due to the absence of the memcpy() calls, bcolz
+can perform up to a 40% faster than HDF5 for reads (peaks of 7 GB/s vs
+5 GB/s).  On its part, writes in bcolz can be up to 3x faster than HDF5
+(17 GB/s vs 5.5 GB/s).
+
+The reason for this (rather huge) latter difference is currently
+unknown, but it would be nice to do some profiling for the writes and
+see where the bottleneck for HDF5 is (I don't think the additional
+memcpy() would be the only responsible for that).
+
 Proposal for getting rid of the memcpy() overhead in the pipeline
 -----------------------------------------------------------------
 
