@@ -131,8 +131,8 @@ Time to read pytables-bench.h5:   0.256s (5.81 GB/s)
 
 so, times for creation and read are pretty much comparable for this case.
 
-The memcpy() overhead in HDF5 filter pipeline
----------------------------------------------
+The memcpy() overhead is in HDF5 filter pipeline
+------------------------------------------------
 
 Here we are going to compare the HDF5 filter pipeline performance using
 the Blosc filter with the bcolz package that also uses Blosc as (the
