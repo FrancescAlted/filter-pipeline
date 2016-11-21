@@ -29,7 +29,7 @@ chunkshape = (1, 100, 100, 100)
 
 
 def create_hdf5(arr, fname, method, inmemory):
-    if method not in ('cont', 'chunk'):
+    if method not in ('cont', 'nofilter'):
         filters = tables.Filters(complevel=5, complib="blosc:lz4")
     else:
         filters = None
@@ -57,6 +57,7 @@ def read_hdf5(fname):
 
 print("-=" * 38)
 print("PyTables version:     %s" % tables.__version__)
+print("HDF5 version:        %s" % tables.which_lib_version("hdf5")[1])
 tinfo = tables.which_lib_version("blosc")
 blosc_date = tinfo[2].split()[1]
 print("Blosc version:       %s (%s)" % (tinfo[1], blosc_date))
@@ -84,22 +85,16 @@ if __name__ == "__main__":
         "method", nargs="?",
         help=("The method to write the dataset.  I can be:"
               "  * cont: Contiguous dataset, so no chunked"
-              "  * chunk: Chunked, but no filter is applied"
+              "  * nofilter: Chunked, but no filter is applied"
               "  * blosc: Chunked and Blosc filter is applied")
         )
     args = parser.parse_args()
 
     fname = sys.argv[0].replace(".py", ".h5")
-    if not args.read_only and args.method not in ('cont', 'chunk', 'blosc'):
-        raise RuntimeError("method can only be 'cont', 'chunk' or 'blosc'")
+    if not args.read_only and args.method not in ('cont', 'nofilter', 'blosc'):
+        raise RuntimeError("method can only be 'cont', 'nofilter' or 'blosc'")
     if args.method == 'cont':
         print("Using Dataset with no chunks!")
-    if args.read_only:
-        print("Read only!")
-    elif args.write_only:
-        print("Write only!")
-    elif args.in_memory:
-        print("Working in-memory!")
 
     if not args.read_only:
         if os.path.isfile(fname):

@@ -69,6 +69,8 @@ int main(int argc, char* argv[]) {
     data[i] = i;
   }
 
+  printf("%s\n", H5_VERS_INFO);
+
   /* Register the filter with the library */
   r = register_blosc(&version, &date);
   printf("Blosc version info: %s (%s)\n", version, date);
