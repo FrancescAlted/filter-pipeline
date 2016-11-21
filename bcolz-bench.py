@@ -45,11 +45,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dirname = sys.argv[0].replace(".py", ".bcolz")
-    if args.read_only:
-        print("Read only!")
-    elif args.write_only:
-        print("Write only!")
-    elif args.in_memory:
+    if args.in_memory:
         print("Working in-memory!")
         dirname = None
 
