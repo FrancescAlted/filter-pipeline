@@ -183,5 +183,5 @@ a package using a filter pipepline that does not require the additional
 memcpy().  ![Figure1][Figure1] is a profile (made with valgrind) showing how
 memcpy() is called a lot after the filter has finished.
 
-[Figure1]: 
+[Figure1]: https://github.com/FrancescAlted/filter-pipeline/blob/master/report/pytables-bench-blosc5-r.png
 
