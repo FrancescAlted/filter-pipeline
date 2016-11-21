@@ -177,7 +177,7 @@ Time to read bcolz-bench.bcolz:   0.411s (3.63 GB/s)
 ```
 
 so, the HDF5 filter pipeline is showing a 20% of slowdown compared with
-a package using a filter pipepline that does not require the additional
+a package using a filter pipeline that does not require the additional
 memcpy().  In the figure below there is a profile (made with valgrind)
 showing how memcpy() is called a lot after the filter has finished (400
 times, i.e. once per chunk):
@@ -332,8 +332,8 @@ unknown, but it would be nice to do some profiling for the writes and
 see where the bottleneck for HDF5 is (I don't think the additional
 memcpy() would be the only responsible for that).
 
-Proposal for getting rid of the memcpy() overhead in the pipeline
------------------------------------------------------------------
+Proposal for getting rid of the memcpy() overhead in the HDF5 pipeline
+----------------------------------------------------------------------
 
 The current API for the filter pipeline goes like this:
 
@@ -360,7 +360,7 @@ size_t XXX_filter2(unsigned flags, size_t cd_nelmts,
 Then, in the situations that allow that (e.g. `H5Dread()`) HDF5 would
 automatically pass the destination buffer to the `XXX_filter2()`
 function.  In case this is not possible, then passing `0` and `NULL`
-to `outbut_size` and `outbuf` respectively would indicate that the
+to `outbuf_size` and `outbuf` respectively would indicate that the
 user should malloc the destination herself.
 
 Probably adding this new API would represent a fairly large rewrite of
