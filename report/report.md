@@ -182,8 +182,57 @@ so, the HDF5 filter pipeline is showing a 20% of slowdown compared with
 a package using a filter pipepline that does not require the additional
 memcpy().  In the figure below there is a profile (made with valgrind)
 showing how memcpy() is called a lot after the filter has finished (400
-times, i.e. once per chunk).
+times, i.e. once per chunk):
 
 ![Figure1](https://github.com/FrancescAlted/filter-pipeline/blob/master/report/pytables-bench-blosc5-r.png)
+
+Effect of memcpy() when using a filter that supports multithreading
+-------------------------------------------------------------------
+
+The 1 additional memcpy() call per each chunk has also quite bad effects
+in the way that a multithreaded filter scales with the number of
+threads.  Here it is an example:
+
+```
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.535s (2.79 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.417s (3.57 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.352s (4.23 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=4 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.330s (4.51 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=5 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.310s (4.81 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=6 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.308s (4.84 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=7 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.324s (4.60 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=8 python pytables-bench.py -r
+Time to read pytables-bench.h5:   0.359s (4.15 GB/s)
+```
+
+```
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.427s (3.49 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.317s (4.70 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.256s (5.82 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=4 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.268s (5.56 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=5 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.294s (5.08 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=6 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.326s (4.57 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=8 python bcolz-bench.py -r
+Time to read bcolz-bench.bcolz:   0.353s (4.22 GB/s)
+```
+
+so, one can see that Blosc achieves best performance with less threads
+(3 vs 6) while continues to get a 15% of performance advantage.
+
+Proposal for getting rid of the memcpy() overhead in the pipeline
+-----------------------------------------------------------------
 
 
