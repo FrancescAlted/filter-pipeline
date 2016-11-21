@@ -9,7 +9,9 @@ TL;DR;
 
 It has been found that the HDF5 filter pipeline requires an additional
 memcpy() operation per chunk.  This adds a noticeable overhead, and most
-importantly, could slowdown multithreaded operations.
+importantly, could slowdown multithreaded operations.  Finally, a 
+proposal for getting rid of the additional memcpy() calls in the filter
+pipeline is sketched.
 
 Introduction
 ------------
