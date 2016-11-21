@@ -8,9 +8,8 @@ About HDF5 filter pipeline performance
 TL;DR;
 
 It has been found that the HDF5 filter pipeline requires an additional
-memcpy operation per chunk.  This adds a noticeable overhead, specially
-on read operations, and most importantly, slowdown multithreaded
-operations.
+memcpy() operation per chunk.  This adds a noticeable overhead, and most
+importantly, could slowdown multithreaded operations.
 
 Introduction
 ------------
@@ -19,12 +18,11 @@ HDF5 has a powerful filter capability that allows to apply different
 algorithms to every chunk of a chunked dataset.  However, due to how
 the API has been designed, this needs an additional memcpy() in order
 to transfer the filtered data to the final containers.  Whereas
-a memcpy() might seem to represent a small performance penalty, it has
-important implications when trying to accelerate the filter operation
-with multithreading.
+a memcpy() might seem to represent a small performance penalty it can be
+as high as a 20%.
 
 In the following sections I'll be presenting a series of benchmarks
-demonstrating this effect, and then will present an alternative API
+demonstrating this effect, and will present an alternative API
 that would get rid of the additional memcpy() that is currently
 required.
 
@@ -34,16 +32,16 @@ bcolz and a comparison with HDF5
 bcolz (bcolz.blosc.org) is a simple dataset container written in Python.
 As it comes with a single Blosc filter that can read and write directly
 to final containers that are returned to users, I'll be using it for
-comparison purposes with the filter implementation in HDF5.
+comparison purposes with the filter pipeline in HDF5.
 
 PyTables as a 'good enough' tool for HDF5 benchmarking
 ------------------------------------------------------
 
-PyTables is a Python wrapper to part of the functionality of the HDF5
-library, and it will be used as a replacement of C benchmarks because
-its performance is quite similar for our purposes.
+PyTables is a Python wrapper to the HDF5 library, and it will be used
+as a replacement of C benchmarks because its performance is quite
+similar for our purposes (except for multithreading, see below).
 
-For example, for creating files (-w flag) we see similar performance:
+For example, for creating files (-w flag):
 
 ```
 francesc@francesc:~/filter-pipeline$ rm c-bench.h5; BLOSC_NTHREADS=1 ./c-bench -w
@@ -63,7 +61,8 @@ francesc@francesc:~/filter-pipeline$ ll -h *.h5
 -rw-rw-r-- 1 francesc francesc 26M Nov 21 11:16 pytables-bench.h5
 ```
 
-and the same goes for reading (-r flag):
+we can see that both PyTables and a pure C program have similar
+performance.  And the same goes for reading (-r flag):
 
 ```
 francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 ./c-bench -r
@@ -85,14 +84,13 @@ Hardware and software used
 
 Most of the benchmarks presented here are made in a Ubuntu 16.04 server
 with an Intel Xeon E3-1245 v5 @ 3.50GHz with 4 physical cores with
-hyperthreading.  Also, some profilings will be presented on a Ubuntu
-16.04 laptop with an Intel i5-3380M @ 2.90GHz.  All the benchmarking
-scripts and code can be found in [this repo](https://github.com/FrancescAlted/filter-pipeline).
+hyperthreading.  All the benchmarking scripts and code can be found in
+[this repo](https://github.com/FrancescAlted/filter-pipeline).
 
 The problem is not in chunking
 ------------------------------
 
-To show that the memcpy() overhead at hand occurs during filter
+To show that the memcpy() overhead at hand occurs only during filter
 operation, look at the time that it takes to create and read a
 contiguous dataset in comparison with a chunked dataset with no filters:
 
@@ -129,14 +127,14 @@ Blosc version:       1.11.1 (2016-09-03)
 Time to read pytables-bench.h5:   0.256s (5.81 GB/s)
 ```
 
-so, times for creation and read are pretty much comparable.
+so, times for creation and read are pretty much comparable for this case.
 
 The memcpy() overhead in HDF5 filter pipeline
 ---------------------------------------------
 
 Here we are going to compare the HDF5 filter pipeline performance using
-the Blosc filter with the bcolz package that also uses Blosc as a
-filter:
+the Blosc filter with the bcolz package that also uses Blosc as (the
+only) filter:
 
 ```
 francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python pytables-bench.py blosc -w
@@ -189,13 +187,12 @@ times, i.e. once per chunk):
 Effect of memcpy() when using a filter that supports multithreading
 -------------------------------------------------------------------
 
-The 1 additional memcpy() call per each chunk has also quite bad effects
-in the way that a multithreaded filter scales with the number of
-threads.  Here it is an example:
+The 1 additional memcpy() call per chunk continues to affect with the
+number of threads.  Here it is an example:
 
 ```
 francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 python pytables-bench.py -r
-Time to read pytables-bench.h5:   0.535s (2.79 GB/s)
+Time to read pytables-bench.h5:   0.497s (3.00 GB/s)
 francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 python pytables-bench.py -r
 Time to read pytables-bench.h5:   0.417s (3.57 GB/s)
 francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 python pytables-bench.py -r
@@ -230,9 +227,68 @@ Time to read bcolz-bench.bcolz:   0.353s (4.22 GB/s)
 ```
 
 so, one can see that Blosc achieves best performance with less threads
-(3 vs 6) while continues to get a 15% of performance advantage.
+(3 vs 6) while continues to get a 15% of performance advantage (at 
+maximum speeds).
+
+Perhaps more interestingly, the pure C benchmark (using the same HDF5
+and Blosc libraries) shows much worse scalability than PyTables:
+
+```
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=1 ./c-bench -r
+Time to read c-bench.h5:   0.537s (2.77 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=2 ./c-bench -r
+Time to read c-bench.h5:   0.614s (2.43 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=3 ./c-bench -r
+Time to read c-bench.h5:   0.684s (2.18 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=4 ./c-bench -r
+Time to read c-bench.h5:   0.715s (2.08 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=5 ./c-bench -r
+Time to read c-bench.h5:   0.812s (1.83 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=6 ./c-bench -r
+Time to read c-bench.h5:   0.891s (1.67 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=7 ./c-bench -r
+Time to read c-bench.h5:   0.966s (1.54 GB/s)
+francesc@francesc:~/filter-pipeline$ BLOSC_NTHREADS=8 ./c-bench -r
+Time to read c-bench.h5:   0.903s (1.65 GB/s)
+```
+
+Why the performance of the C-based benchmark drops as we add more
+threads into the task is still unknown, as both the C and PyTables
+benchmarks use the very same Blosc filter.  This deserves more study
+indeed.
 
 Proposal for getting rid of the memcpy() overhead in the pipeline
 -----------------------------------------------------------------
 
+The current API for the filter pipeline goes like this:
 
+```
+size_t XXX_filter(unsigned flags, size_t cd_nelmts,
+                  const unsigned cd_values[], size_t nbytes,
+                  size_t *buf_size, void **buf)
+```
+
+so, clearly the outcome of the filter has to be malloc'ed internally.
+With that, a copy would be needed to populate the user data passed
+in read functions (e.g. `H5Dread()`).
+
+The proposal is to add a new API that would allow to pass the
+destination buffer.  Something along these lines:
+
+```
+size_t XXX_filter2(unsigned flags, size_t cd_nelmts,
+                   const unsigned cd_values[], size_t nbytes,
+                   size_t *inbuf_size, void **inbuf,
+                   size_t *outbuf_size, void **outbuf)
+```
+
+Then, in the situations that allow that (e.g. `H5Dread()`) HDF5 would
+automatically pass the destination buffer to the `XXX_filter2()`
+function.  In case this is not possible, then passing `0` and `NULL`
+to `outbut_size` and `outbuf` respectively would indicate that the
+user should malloc the destination herself.
+
+Probably adding this new API would represent a fairly large rewrite of
+the HDF5 filter pipeline, but if HDF5 would like to continue considered
+a high performance library for I/O, this would be a most welcome
+addition.
