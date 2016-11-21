@@ -9,10 +9,11 @@ import numpy as np
 import bcolz
 
 
-N = int(1e8)
+N = int(4e8)
+shape = (400, 100, 100, 100)
 
 def create_bcolz(arr, dirname):
-    cparams = bcolz.cparams(clevel=9)
+    cparams = bcolz.cparams(clevel=5, cname='lz4')
     ca = bcolz.carray(arr, rootdir=dirname, mode='w', cparams=cparams,
                       chunklen=1)
     ca.flush()
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     if not args.read_only:
         if dirname and os.path.isdir(dirname):
             shutil.rmtree(dirname)
-        arr = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
+        arr = np.arange(N, dtype=np.int32).reshape(shape)
         t0 = time()
         ca = create_bcolz(arr, dirname)
         t = time() - t0

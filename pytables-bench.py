@@ -23,11 +23,14 @@ import numpy as np
 import tables
 
 
-N = int(1e8)
+N = int(4e8)
+shape = (400, 100, 100, 100)
+chunkshape = (1, 100, 100, 100)
+
 
 def create_hdf5(arr, fname, method, inmemory):
     if method not in ('cont', 'chunk'):
-        filters = tables.Filters(complevel=9, complib="blosc")
+        filters = tables.Filters(complevel=5, complib="blosc:lz4")
     else:
         filters = None
     if inmemory:
@@ -36,7 +39,7 @@ def create_hdf5(arr, fname, method, inmemory):
             f.create_array(f.root, 'carray', obj=arr)
         else:
             f.create_carray(f.root, 'carray', filters=filters, obj=arr,
-                            chunkshape=(1, 100, 100, 100))
+                            chunkshape=chunkshape)
         return f
     else:
         with tables.open_file(fname, "w", pytables_sys_attrs=False) as f:
@@ -44,7 +47,7 @@ def create_hdf5(arr, fname, method, inmemory):
                 f.create_array(f.root, 'carray', obj=arr)
             else:
                 f.create_carray(f.root, 'carray', filters=filters, obj=arr,
-                                chunkshape=(1, 100, 100, 100))
+                                chunkshape=chunkshape)
         return None
 
 def read_hdf5(fname):
@@ -101,7 +104,7 @@ if __name__ == "__main__":
     if not args.read_only:
         if os.path.isfile(fname):
             os.remove(fname)
-        arr = np.arange(N, dtype=np.int32).reshape(100, 100, 100, 100)
+        arr = np.arange(N, dtype=np.int32).reshape(shape)
         t0 = time()
         f = create_hdf5(arr, fname, args.method, args.in_memory)
         t = time() - t0

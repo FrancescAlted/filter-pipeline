@@ -5,11 +5,11 @@
 
     To run:
 
-    $ ./c-bench
+    $ ./c-bench -w
     Blosc version info: 1.11.1 ($Date:: 2016-09-03 #$)
-    Time to create an HDF5 file: 0.170s (2.20 GB/s)
-    Time to read an HDF5 file: 0.228s (1.63 GB/s)
+    Time to create c-bench.h5: 0.397s (0.94 GB/s)
     Success!
+
     $ h5ls -v c-bench.h5
     Opened "c-bench.h5" with sec2 driver.
     dset                     Dataset {100/100, 100/100, 100/100, 100/100}
@@ -28,12 +28,12 @@
 #include "hdf5.h"
 #include "blosc_filter.h"
 
-#define SIZE 100 * 100 * 100 * 100
-#define SHAPE {100, 100, 100, 100}
+#define SIZE 400 * 100 * 100 * 100
+#define SHAPE {400, 100, 100, 100}
 #define CHUNKSHAPE {1, 100, 100, 100}
 
 int main(int argc, char* argv[]) {
-  char codec[32];
+  char mode[32];
   static int data[SIZE];
   static int data_out[SIZE];
   const hsize_t shape[] = SHAPE;
@@ -47,32 +47,22 @@ int main(int argc, char* argv[]) {
   hid_t fid, sid, dset, plist;
   char usage[256];
 
-  strncpy(usage, "Usage: c-bench [blosclz | lz4 | lz4hc | snappy | zlib | zstd] ", 255);
+  strncpy(usage, "Usage: c-bench [-r|-w] [nofilter] ", 32);
   if (argc < 2) {
     printf("%s\n", usage);
     exit(1);
   }
 
-  strcpy(codec, argv[1]);
-  printf("codec: %s", codec);
-  if (strcmp(codec, "None") == 0)
-    cd_values[6] = -1;
-  else if (strcmp(codec, "blosclz") == 0)
-    cd_values[6] = BLOSC_BLOSCLZ;
-  else if (strcmp(codec, "lz4") == 0)
-    cd_values[6] = BLOSC_LZ4;
-  else if (strcmp(codec, "lz4hc") == 0)
-    cd_values[6] = BLOSC_LZ4HC;
-  else if (strcmp(codec, "snappy") == 0)
-    cd_values[6] = BLOSC_SNAPPY;
-  else if (strcmp(codec, "zlib") == 0)
-    cd_values[6] = BLOSC_ZLIB;
-  else if (strcmp(codec, "zstd") == 0)
-    cd_values[6] = BLOSC_ZSTD;
-  else {
-    printf("No such codec: '%s'\n", codec);
+  strcpy(mode, argv[1]);
+  //printf("mode: %s\n", mode);
+  if ((strcmp(mode, "-w") != 0) && (strcmp(mode, "-r") != 0)) {
     printf("%s\n", usage);
     exit(2);
+  }
+
+  cd_values[6] = BLOSC_LZ4;  /* the default codec (you can change it with BLOSC_COMPRESSOR env var) */
+  if ((argc == 3) && (strcmp(argv[2], "nofilter") == 0)) {
+    cd_values[6] = -1;  /* no codec */
   }
 
   for (i = 0; i < SIZE; i++) {
@@ -83,51 +73,54 @@ int main(int argc, char* argv[]) {
   r = register_blosc(&version, &date);
   printf("Blosc version info: %s (%s)\n", version, date);
 
-  start = clock();
-  fid = H5Fcreate("c-bench.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-  sid = H5Screate_simple(4, shape, NULL);
-  plist = H5Pcreate(H5P_DATASET_CREATE);
+  if (strcmp(mode, "-w") == 0) {
+      start = clock();
+      fid = H5Fcreate("c-bench.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+      sid = H5Screate_simple(4, shape, NULL);
+      plist = H5Pcreate(H5P_DATASET_CREATE);
 
-  /* Chunked layout required for filters */
-  r = H5Pset_chunk(plist, 4, chunkshape);
+      /* Chunked layout required for filters */
+      r = H5Pset_chunk(plist, 4, chunkshape);
 
-  /* 0 to 3 (inclusive) param slots are reserved. */
-  cd_values[4] = 9;       /* compression level */
-  cd_values[5] = 1;       /* 0: shuffle not active, 1: shuffle active, 2: bitshuffle active */
+      /* 0 to 3 (inclusive) param slots are reserved. */
+      cd_values[4] = 5;       /* compression level */
+      cd_values[5] = 1;       /* 0: shuffle not active, 1: shuffle active, 2: bitshuffle active */
 
-  if (cd_values[6] == -1) {
-    dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      if (cd_values[6] == -1) {
+        dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+      }
+      else {
+        r = H5Pset_filter(plist, FILTER_BLOSC, H5Z_FLAG_OPTIONAL, 7, cd_values);
+        dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
+      }
+
+      r = H5Dwrite(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);
+      H5Dclose(dset);
+      H5Sclose(sid);
+      H5Fclose(fid);
+
+      end = clock();
+      cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+      printf("Time to create c-bench.h5: %.3fs (%.2f GB/s)\n", cpu_time_used,
+             SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
   }
-  else {
-    r = H5Pset_filter(plist, FILTER_BLOSC, H5Z_FLAG_OPTIONAL, 7, cd_values);
-    dset = H5Dcreate(fid, "dset", H5T_NATIVE_INT32, sid, H5P_DEFAULT, plist, H5P_DEFAULT);
+
+  if (strcmp(mode, "-r") == 0) {
+      start = clock();
+      fid = H5Fopen("c-bench.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+      dset = H5Dopen1(fid, "dset");
+
+      r = H5Dread(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data_out);
+
+      H5Dclose(dset);
+      H5Fclose(fid);
+      end = clock();
+      cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+      printf("Time to read c-bench.h5:   %.3fs (%.2f GB/s)\n", cpu_time_used,
+             SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
   }
-
-  r = H5Dwrite(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data);
-  H5Dclose(dset);
-  H5Sclose(sid);
-  H5Fclose(fid);
-
-  end = clock();
-  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-  printf("Time to create c-bench.h5: %.3fs (%.2f GB/s)\n", cpu_time_used,
-         SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
-
-  start = clock();
-  fid = H5Fopen("c-bench.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
-  dset = H5Dopen1(fid, "dset");
-
-  r = H5Dread(dset, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, &data_out);
-
-  H5Dclose(dset);
-  H5Fclose(fid);
-  end = clock();
-  cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-  printf("Time to read c-bench.h5:   %.3fs (%.2f GB/s)\n", cpu_time_used,
-         SIZE * sizeof(int) / (cpu_time_used * (1<<30)));
 
   fprintf(stdout, "Success!\n");
-
   return_code = 0;
 
   return return_code;
